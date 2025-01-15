@@ -1,5 +1,5 @@
 // app/api/scrape/route.ts
-import { VercelPostgres } from "@langchain/community/vectorstores/vercel_postgres";
+import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { Document } from "@langchain/core/documents";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { encodingForModel } from "js-tiktoken";
@@ -7,12 +7,6 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 
-// Keep existing CONFIG, ScrapeRequest interface, DocumentProcessor, and EarningsReportFetcher classes
-
-interface ScrapeRequest {
-  startYear: number;
-  endYear: number;
-}
 const CONFIG = {
   QUARTERS: ["First", "Second", "Third", "Fourth"],
   BASE_URL: "https://ir.aboutamazon.com/news-release/news-release-details",
@@ -22,6 +16,11 @@ const CONFIG = {
   MODEL_NAME: "gpt-3.5-turbo",
   RATE_LIMIT_DELAY: 1000,
 } as const;
+
+interface ScrapeRequest {
+  startYear: number;
+  endYear: number;
+}
 
 class DocumentProcessor {
   private readonly textSplitter: RecursiveCharacterTextSplitter;
@@ -87,17 +86,15 @@ class EarningsReportFetcher {
   }
 }
 
-class VectorStoreManager {
-  private vectorStore: VercelPostgres | null = null;
+class ChromaManager {
+  private vectorStore: Chroma | null = null;
 
   async initialize() {
     if (!this.vectorStore) {
       const embeddings = new OpenAIEmbeddings();
-      this.vectorStore = await VercelPostgres.initialize(embeddings, {
-        tableName: process.env.COLLECTION_NAME || "amazon_earnings",
-        postgresConnectionOptions: {
-          connectionString: process.env.POSTGRES_URL,
-        },
+      this.vectorStore = await Chroma.fromExistingCollection(embeddings, {
+        collectionName: process.env.COLLECTION_NAME || "amazon",
+        url: process.env.CHROMA_URL,
       });
     }
     console.log("Vector store initialized");
@@ -124,7 +121,7 @@ export async function POST(request: Request) {
     // Initialize services
     const fetcher = new EarningsReportFetcher();
     const processor = new DocumentProcessor();
-    const vectorStoreManager = new VectorStoreManager();
+    const chromaManager = new ChromaManager();
 
     // Fetch all reports in parallel
     const reports = await fetcher.fetchReportsInParallel(startYear, endYear);
@@ -135,9 +132,9 @@ export async function POST(request: Request) {
     );
     const chunks = (await Promise.all(chunksPromises)).flat();
 
-    // Initialize Vercel Postgres and store documents
-    await vectorStoreManager.initialize();
-    await vectorStoreManager.addDocumentsInBatches(chunks);
+    // Initialize Chroma and store documents
+    await chromaManager.initialize();
+    await chromaManager.addDocumentsInBatches(chunks);
 
     return NextResponse.json({
       success: true,

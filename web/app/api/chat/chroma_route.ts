@@ -1,7 +1,9 @@
 // app/api/chat/route.ts
 import { NextResponse } from "next/server";
-import { VercelPostgres } from "@langchain/community/vectorstores/vercel_postgres";
+import { Chroma } from "@langchain/community/vectorstores/chroma";
+
 import { OpenAIEmbeddings } from "@langchain/openai";
+
 import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
@@ -9,7 +11,7 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Document } from "@langchain/core/documents";
 import { formatDocumentsAsString } from "langchain/util/document";
 
-async function Summarize(documents: Document[], question: string) {
+export async function Summarize(documents: Document[], prompt: string) {
   try {
     const model = new ChatOpenAI({
       modelName: "gpt-3.5-turbo",
@@ -37,20 +39,23 @@ async function Summarize(documents: Document[], question: string) {
 
     const response = await chain.invoke({
       documents,
-      question,
+      prompt,
     });
 
     return response;
   } catch (error) {
     console.error("Summary generation error:", error);
-    throw new Error("Failed to generate summary");
+    return;
+    {
+      error: "Failed to generate summary";
+    }
   }
 }
-
 export async function POST(request: Request) {
   try {
     const { prompt } = await request.json();
 
+    // Validate prompt
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
         { error: "Invalid prompt provided" },
@@ -58,15 +63,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // Initialize embeddings
     const embeddings = new OpenAIEmbeddings();
 
-    const vectorStore = await VercelPostgres.initialize(embeddings, {
-      tableName: process.env.COLLECTION_NAME || "amazon_earnings",
-      postgresConnectionOptions: {
-        connectionString: process.env.POSTGRES_URL,
-      },
+    // Initialize vector store
+    const vectorStore = await Chroma.fromExistingCollection(embeddings, {
+      collectionName: process.env.COLLECTION_NAME || "amazon",
+      url: process.env.CHROMA_URL || "http://localhost:8000",
     });
 
+    // Perform similarity search
     const search_results = await vectorStore.similaritySearch(prompt);
     console.log("search complete with query: ", prompt);
     const summary = await Summarize(search_results, prompt);
