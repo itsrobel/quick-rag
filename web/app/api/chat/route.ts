@@ -29,41 +29,36 @@ async function SummarizeWithToT(documents: Document[], question: string) {
 
   // Then evaluate and expand each thought
   const thoughtEvaluationPrompt = PromptTemplate.fromTemplate(`
-    Given the following initial thought, evaluate its merit and expand on it:
-    
-    Initial Thought: {thought}
-    Documents: {documents}
-    Question: {question}
-
-    1. Evaluation (1-10 score):
-    2. Supporting Evidence:
-    3. Potential Challenges:
-    4. Refined Conclusion:
-  `);
-
-  // Final synthesis prompt
-  const synthesisPrompt = PromptTemplate.fromTemplate(`
-    Based on the following evaluated thoughts, synthesize a final comprehensive answer:
-
-    Evaluated Thoughts:
-    {evaluatedThoughts}
-
-    Question: {question}
-
-
-    Provide a well-reasoned final answer that incorporates the best insights from the different thought paths.
+Given the following initial thought, evaluate it focusing on specific financial data:
   
-    Based on the following evaluated thoughts, synthesize a final comprehensive answer:
+  Initial Thought: {thought}
+  Documents: {documents}
+  Question: {question}
 
-    Evaluated Thoughts:
-    {evaluatedThoughts}
-
-    Question: {question}
-
-
-    Provide a well-reasoned final answer that incorporates the best insights from the different thought paths.
-    That answer should be consince and give a direct answer.
+  1. Evaluation (1-10 score):
+  2. Specific Financial Data Found:
+  3. Year and Numbers Identified:
+  4. Concrete Conclusion:
   `);
+
+  const synthesisPrompt = PromptTemplate.fromTemplate(`
+  Based on the following evaluated thoughts and the provided documents, synthesize a final answer:
+
+  Evaluated Thoughts:
+  {evaluatedThoughts}
+
+  Question: {question}
+
+  Instructions:
+  1. Use ONLY the information present in the evaluated thoughts and documents
+  2. Provide a clear, direct answer with specific numbers and dates
+  3. Include a brief explanation of how you arrived at this conclusion
+  4. If the information is not available in the documents, state that clearly
+
+  Format your response as:
+  Answer: [Direct answer with specific numbers]
+  Reasoning: [Brief explanation based on the analyzed thoughts]
+`);
 
   async function generateInitialThoughts() {
     const initialThoughts = await RunnableSequence.from([
