@@ -12,7 +12,7 @@ export default function Home() {
   ]);
   const [inputText, setInputText] = useState("");
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
 
     setMessages((prev) => [
@@ -21,13 +21,19 @@ export default function Home() {
     ]);
     setInputText("");
 
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ prompt: inputText }),
+    });
+
+    const data = await res.json();
     // Simulate bot response
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
         {
           id: prev.length + 1,
-          text: "Thanks for your message! This is a simulated response.",
+          text: data.response,
           sender: "bot",
         },
       ]);
