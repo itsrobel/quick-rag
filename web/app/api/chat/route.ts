@@ -133,43 +133,43 @@ async function SummarizeWithToT(documents: Document[], question: string) {
 // console.log("Evaluated Thoughts:", result.evaluatedThoughts);
 // console.log("Final Answer:", result.finalAnswer);
 
-async function Summarize(documents: Document[], question: string) {
-  try {
-    const model = new ChatOpenAI({
-      modelName: "gpt-3.5-turbo",
-      temperature: 0.7,
-    });
-
-    const prompt = PromptTemplate.fromTemplate(`
-      You are an expert financial analyst. Based on the following documents, summarize the key points that answer the question: {question}
-
-      Documents:
-      {documents}
-
-      Provide a concise summary.
-    `);
-
-    const chain = RunnableSequence.from([
-      {
-        documents: (input) => formatDocumentsAsString(input.documents),
-        question: (input) => input.question,
-      },
-      prompt,
-      model,
-      new StringOutputParser(),
-    ]);
-
-    const response = await chain.invoke({
-      documents,
-      question,
-    });
-
-    return response;
-  } catch (error) {
-    console.error("Summary generation error:", error);
-    throw new Error("Failed to generate summary");
-  }
-}
+// async function Summarize(documents: Document[], question: string) {
+//   try {
+//     const model = new ChatOpenAI({
+//       modelName: "gpt-3.5-turbo",
+//       temperature: 0.7,
+//     });
+//
+//     const prompt = PromptTemplate.fromTemplate(`
+//       You are an expert financial analyst. Based on the following documents, summarize the key points that answer the question: {question}
+//
+//       Documents:
+//       {documents}
+//
+//       Provide a concise summary.
+//     `);
+//
+//     const chain = RunnableSequence.from([
+//       {
+//         documents: (input) => formatDocumentsAsString(input.documents),
+//         question: (input) => input.question,
+//       },
+//       prompt,
+//       model,
+//       new StringOutputParser(),
+//     ]);
+//
+//     const response = await chain.invoke({
+//       documents,
+//       question,
+//     });
+//
+//     return response;
+//   } catch (error) {
+//     console.error("Summary generation error:", error);
+//     throw new Error("Failed to generate summary");
+//   }
+// }
 
 export async function POST(request: Request) {
   try {
