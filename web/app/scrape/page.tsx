@@ -22,7 +22,8 @@ export default function ScrapePage() {
       const data = await response.json();
       setResult(`Successfully processed ${data.reportsProcessed} reports`);
     } catch (error) {
-      setResult("Error processing reports");
+      setResult("Error processing reports: ");
+      console.log(error);
     } finally {
       setIsLoading(false);
     }
