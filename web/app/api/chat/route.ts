@@ -12,7 +12,7 @@ import { formatDocumentsAsString } from "langchain/util/document";
 async function SummarizeWithToT(documents: Document[], question: string) {
   const model = new ChatOpenAI({
     modelName: "gpt-3.5-turbo",
-    temperature: 0.7,
+    temperature: 0.8,
   });
 
   // First, generate multiple initial thoughts
@@ -50,7 +50,19 @@ async function SummarizeWithToT(documents: Document[], question: string) {
 
     Question: {question}
 
+
     Provide a well-reasoned final answer that incorporates the best insights from the different thought paths.
+  
+    Based on the following evaluated thoughts, synthesize a final comprehensive answer:
+
+    Evaluated Thoughts:
+    {evaluatedThoughts}
+
+    Question: {question}
+
+
+    Provide a well-reasoned final answer that incorporates the best insights from the different thought paths.
+    That answer should be consince and give a direct answer.
   `);
 
   async function generateInitialThoughts() {
@@ -112,6 +124,7 @@ async function SummarizeWithToT(documents: Document[], question: string) {
 
     // 3. Synthesize final answer
     const finalAnswer = await synthesizeFinalAnswer(evaluatedThoughts);
+    console.log("Initial Thoughts:", initialThoughts);
 
     return {
       initialThoughts,
@@ -195,7 +208,7 @@ export async function POST(request: Request) {
     console.log("search complete with query: ", prompt);
     const summary = await SummarizeWithToT(search_results, prompt);
 
-    return NextResponse.json({ response: summary });
+    return NextResponse.json({ response: summary.finalAnswer });
   } catch (error) {
     console.error("Search error:", error);
     return NextResponse.json(
