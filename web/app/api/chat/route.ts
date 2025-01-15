@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const vectorStore = await VercelPostgres.initialize(embeddings, {
       tableName: process.env.COLLECTION_NAME || "amazon_earnings",
       postgresConnectionOptions: {
-        connectionString: process.env.POSTGRES_URL,
+        connectionString: process.env.POSTGRES_DATABASE_URL,
       },
     });
 
