@@ -147,18 +147,35 @@ export async function GET() {
     const fetcher = new EarningsReportFetcher();
     const vectorStoreManager = new VectorStoreManager();
 
-    console.log("Starting fetch and process operation...");
-    const chunks = await fetcher.fetchAndProcessAllReports(2020, 2022);
-    console.log(`Processed ${chunks.length} total chunks`);
+    const processingPromise = (async () => {
+      console.log("Starting fetch and process operation...");
+      const chunks = await fetcher.fetchAndProcessAllReports(2020, 2024);
+      console.log(`Processed ${chunks.length} total chunks`);
 
-    // Initialize and store in vector database
-    await vectorStoreManager.initialize();
-    await vectorStoreManager.addDocumentsInBatches(chunks);
+      await vectorStoreManager.initialize();
+      await vectorStoreManager.addDocumentsInBatches(chunks);
+    })();
 
+    // Fire and forget - handle errors in the background
+    processingPromise.catch((error) => {
+      console.error("Background processing error:", error);
+    });
     return NextResponse.json({
       success: true,
-      chunksProcessed: chunks.length,
+      message: "Processing started",
     });
+    // console.log("Starting fetch and process operation...");
+    // const chunks = await fetcher.fetchAndProcessAllReports(2020, 2022);
+    // console.log(`Processed ${chunks.length} total chunks`);
+    //
+    // // Initialize and store in vector database
+    // await vectorStoreManager.initialize();
+    // await vectorStoreManager.addDocumentsInBatches(chunks);
+
+    // return NextResponse.json({
+    //   success: true,
+    //   chunksProcessed: chunks.length,
+    // });
   } catch (error) {
     console.error("Processing error:", error);
     return NextResponse.json(
