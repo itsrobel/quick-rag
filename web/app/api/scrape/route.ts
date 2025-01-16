@@ -9,18 +9,15 @@ import * as cheerio from "cheerio";
 
 // Keep existing CONFIG, ScrapeRequest interface, DocumentProcessor, and EarningsReportFetcher classes
 
-interface ScrapeRequest {
-  startYear: number;
-  endYear: number;
-}
 const CONFIG = {
   QUARTERS: ["First", "Second", "Third", "Fourth"],
+  YEARS: [2024, 2023, 2022, 2021, 2020],
   BASE_URL: "https://ir.aboutamazon.com/news-release/news-release-details",
   BATCH_SIZE: 100,
   CHUNK_SIZE: 2000,
   CHUNK_OVERLAP: 200,
   MODEL_NAME: "gpt-3.5-turbo",
-  RATE_LIMIT_DELAY: 1000,
+  RATE_LIMIT_DELAY: 10,
 } as const;
 
 class DocumentProcessor {
@@ -42,7 +39,20 @@ class DocumentProcessor {
 }
 
 class EarningsReportFetcher {
-  async fetchReport(year: number, quarter: string): Promise<Document | null> {
+  private readonly processor: DocumentProcessor;
+
+  constructor() {
+    this.processor = new DocumentProcessor();
+  }
+
+  private async delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async fetchAndProcessReport(
+    year: number,
+    quarter: string,
+  ): Promise<Document[] | null> {
     const url = `${CONFIG.BASE_URL}/${year}/Amazon.com-Announces-${quarter}-Quarter-Results/`;
 
     try {
@@ -54,8 +64,9 @@ class EarningsReportFetcher {
       const content = $(".q4default").text().trim();
 
       if (!content) return null;
+      console.log(`Fetched report for ${quarter} ${year}`);
 
-      return {
+      const document = {
         pageContent: content,
         metadata: {
           source: url,
@@ -64,26 +75,40 @@ class EarningsReportFetcher {
           timestamp: new Date().toISOString(),
         },
       };
+
+      // Process document immediately after fetching
+      const chunks = await this.processor.splitDocument(document);
+      console.log(
+        `Split ${quarter} ${year} report into ${chunks.length} chunks`,
+      );
+      return chunks;
     } catch (error) {
       console.error(`Failed to fetch report for ${quarter} ${year}:`, error);
       return null;
     }
   }
 
-  async fetchReportsInParallel(
+  async fetchAndProcessAllReports(
     startYear: number,
     endYear: number,
   ): Promise<Document[]> {
-    const fetchPromises: Promise<Document | null>[] = [];
+    const tasks: Array<Promise<Document[] | null>> = [];
 
     for (let year = startYear; year <= endYear; year++) {
       for (const quarter of CONFIG.QUARTERS) {
-        fetchPromises.push(this.fetchReport(year, quarter));
+        if (year === 2024 && quarter === "Fourth") continue;
+
+        const task = this.delay(tasks.length * CONFIG.RATE_LIMIT_DELAY).then(
+          () => this.fetchAndProcessReport(year, quarter),
+        );
+        tasks.push(task);
       }
     }
 
-    const reports = await Promise.all(fetchPromises);
-    return reports.filter((report): report is Document => report !== null);
+    const results = await Promise.all(tasks);
+    return results
+      .filter((chunks): chunks is Document[] => chunks !== null)
+      .flat();
   }
 }
 
@@ -96,7 +121,7 @@ class VectorStoreManager {
       this.vectorStore = await VercelPostgres.initialize(embeddings, {
         tableName: process.env.COLLECTION_NAME || "amazon_earnings",
         postgresConnectionOptions: {
-          connectionString: process.env.POSTGRES_DATABASE_URLL,
+          connectionString: process.env.POSTGRES_DATABASE_URL,
         },
       });
     }
@@ -117,32 +142,22 @@ class VectorStoreManager {
   }
 }
 
-export async function POST(request: Request) {
+export async function GET() {
   try {
-    const { startYear, endYear }: ScrapeRequest = await request.json();
-
-    // Initialize services
     const fetcher = new EarningsReportFetcher();
-    const processor = new DocumentProcessor();
     const vectorStoreManager = new VectorStoreManager();
 
-    // Fetch all reports in parallel
-    const reports = await fetcher.fetchReportsInParallel(startYear, endYear);
+    console.log("Starting fetch and process operation...");
+    const chunks = await fetcher.fetchAndProcessAllReports(2020, 2022);
+    console.log(`Processed ${chunks.length} total chunks`);
 
-    // Process all documents
-    const chunksPromises = reports.map((report) =>
-      processor.splitDocument(report),
-    );
-    const chunks = (await Promise.all(chunksPromises)).flat();
-
-    // Initialize Vercel Postgres and store documents
+    // Initialize and store in vector database
     await vectorStoreManager.initialize();
     await vectorStoreManager.addDocumentsInBatches(chunks);
 
     return NextResponse.json({
       success: true,
       chunksProcessed: chunks.length,
-      reportsProcessed: reports.length,
     });
   } catch (error) {
     console.error("Processing error:", error);

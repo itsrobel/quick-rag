@@ -29,16 +29,16 @@ async function SummarizeWithToT(documents: Document[], question: string) {
 
   // Then evaluate and expand each thought
   const thoughtEvaluationPrompt = PromptTemplate.fromTemplate(`
-Given the following initial thought, evaluate it focusing on specific financial data:
-  
-  Initial Thought: {thought}
-  Documents: {documents}
-  Question: {question}
+  Given the following initial thought, evaluate it focusing on specific financial data:
+    
+    Initial Thought: {thought}
+    Documents: {documents}
+    Question: {question}
 
-  1. Evaluation (1-10 score):
-  2. Specific Financial Data Found:
-  3. Year and Numbers Identified:
-  4. Concrete Conclusion:
+    1. Evaluation (1-10 score):
+    2. Specific Financial Data Found:
+    3. Year and Numbers Identified:
+    4. Concrete Conclusion:
   `);
 
   const synthesisPrompt = PromptTemplate.fromTemplate(`
@@ -131,54 +131,6 @@ Given the following initial thought, evaluate it focusing on specific financial 
     throw new Error("Failed to generate tree of thoughts analysis");
   }
 }
-
-// Example usage:
-// const result = await SummarizeWithToT(
-//   documents,
-//   "What are the key financial risks?",
-// );
-// console.log("Initial Thoughts:", result.initialThoughts);
-// console.log("Evaluated Thoughts:", result.evaluatedThoughts);
-// console.log("Final Answer:", result.finalAnswer);
-
-// async function Summarize(documents: Document[], question: string) {
-//   try {
-//     const model = new ChatOpenAI({
-//       modelName: "gpt-3.5-turbo",
-//       temperature: 0.7,
-//     });
-//
-//     const prompt = PromptTemplate.fromTemplate(`
-//       You are an expert financial analyst. Based on the following documents, summarize the key points that answer the question: {question}
-//
-//       Documents:
-//       {documents}
-//
-//       Provide a concise summary.
-//     `);
-//
-//     const chain = RunnableSequence.from([
-//       {
-//         documents: (input) => formatDocumentsAsString(input.documents),
-//         question: (input) => input.question,
-//       },
-//       prompt,
-//       model,
-//       new StringOutputParser(),
-//     ]);
-//
-//     const response = await chain.invoke({
-//       documents,
-//       question,
-//     });
-//
-//     return response;
-//   } catch (error) {
-//     console.error("Summary generation error:", error);
-//     throw new Error("Failed to generate summary");
-//   }
-// }
-
 export async function POST(request: Request) {
   try {
     const { prompt } = await request.json();
@@ -200,10 +152,16 @@ export async function POST(request: Request) {
     });
 
     const search_results = await vectorStore.similaritySearch(prompt);
+
     console.log("search complete with query: ", prompt);
     const summary = await SummarizeWithToT(search_results, prompt);
+    console.log(search_results);
+    const sources = search_results.map((r) => r.metadata.source);
 
-    return NextResponse.json({ response: summary.finalAnswer });
+    return NextResponse.json({
+      response: summary.finalAnswer,
+      sources: sources,
+    });
   } catch (error) {
     console.error("Search error:", error);
     return NextResponse.json(

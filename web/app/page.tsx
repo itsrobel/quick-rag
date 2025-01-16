@@ -12,6 +12,16 @@ export default function Home() {
   ]);
   const [inputText, setInputText] = useState("");
 
+  const handleIndexing = async () => {
+    const res = await fetch("/api/scrape", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    console.log(res.json());
+  };
+
   const handleSend = async () => {
     if (!inputText.trim()) return;
 
@@ -37,13 +47,23 @@ export default function Home() {
           sender: "bot",
         },
       ]);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          text: data.sources,
+          sender: "bot",
+        },
+      ]);
     }, 1000);
   };
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="border-b px-6 py-4">
+      <header className="border-b flex justify-between px-6 py-4">
         <h1 className="text-2xl font-bold tracking-tight">Chat Interface</h1>
+        <Button onClick={handleIndexing}>Index Reports</Button>
       </header>
 
       <ScrollArea className="flex-1 p-4">
