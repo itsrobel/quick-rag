@@ -11,7 +11,11 @@ export default function Home() {
     { id: 1, text: "Hello! How can I help you today?", sender: "bot" },
   ]);
   const [inputText, setInputText] = useState("");
+  const [showSources, setShowSources] = useState(false);
 
+  const handleToggle = () => {
+    setShowSources((prev) => !prev);
+  };
   const handleIndexing = async () => {
     const res = await fetch("/api/scrape", {
       method: "GET",
@@ -47,15 +51,16 @@ export default function Home() {
           sender: "bot",
         },
       ]);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          text: data.sources,
-          sender: "bot",
-        },
-      ]);
+      if (showSources) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: prev.length + 1,
+            text: data.sources,
+            sender: "bot",
+          },
+        ]);
+      }
     }, 1000);
   };
 
@@ -63,6 +68,25 @@ export default function Home() {
     <div className="flex flex-col h-screen">
       <header className="border-b flex justify-between px-6 py-4">
         <h1 className="text-2xl font-bold tracking-tight">Chat Interface</h1>
+        <div className="flex items-center gap-3">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showSources}
+              onChange={handleToggle}
+              className="sr-only peer"
+            />
+            <div
+              className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 
+          peer-checked:after:translate-x-full peer-checked:bg-blue-600 
+          after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
+          after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"
+            ></div>
+          </label>
+          <span className="text-sm font-medium text-gray-700">
+            {showSources ? "Hide Sources" : "Show Sources"}
+          </span>
+        </div>
         <Button onClick={handleIndexing}>Index Reports</Button>
       </header>
 
